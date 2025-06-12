@@ -42,7 +42,7 @@ export class TypedLeafIndex {
 }
 
 /**
- * Strongly typed parent node index  
+ * Strongly typed parent node index
  */
 export class TypedParentIndex {
   constructor(public readonly value: number) {
@@ -69,13 +69,15 @@ export class TypedNodeIndex {
     if (!Number.isFinite(value)) {
       throw new RatchetTreeError(`Invalid node index: ${value}`);
     }
-    
+
     // Convert to integer if it's a floating point number
     const intValue = Math.floor(value);
     if (intValue < 0) {
-      throw new RatchetTreeError(`Invalid node index: ${intValue} (must be non-negative)`);
+      throw new RatchetTreeError(
+        `Invalid node index: ${intValue} (must be non-negative)`,
+      );
     }
-    
+
     // Store the integer value
     (this as any).value = intValue;
   }
@@ -103,7 +105,9 @@ export class TypedNodeIndex {
   }
 
   toString(): string {
-    return this.isLeaf() ? `Node(Leaf,${this.value})` : `Node(Parent,${this.value})`;
+    return this.isLeaf()
+      ? `Node(Leaf,${this.value})`
+      : `Node(Parent,${this.value})`;
   }
 }
 
@@ -156,7 +160,7 @@ export class RatchetTree {
     this.suite = suite;
     this.leafNodes = [];
     this.parentNodes = [];
-    
+
     if (nodes) {
       this.importFromFlatArray(nodes);
     }
@@ -177,7 +181,7 @@ export class RatchetTree {
           this.leafNodes.push(null);
         }
         this.leafNodes[leafIndex] = nodes[i] as LeafNode | null;
-        
+
         if (nodes[i] !== null) {
           maxLeaf = leafIndex;
         }
@@ -345,7 +349,7 @@ export class RatchetTree {
    */
   static sibling(index: NodeIndex): NodeIndex {
     const parentIndex = this.parent(index);
-    
+
     // If this node is the left child, return the right child
     // If this node is the right child, return the left child
     if (index < parentIndex) {
@@ -362,13 +366,13 @@ export class RatchetTree {
   static level(index: NodeIndex): number {
     let level = 0;
     let temp = index;
-    
+
     // Count trailing 1 bits
     while ((temp & 1) === 1 && temp > 0) {
       level++;
       temp >>= 1;
     }
-    
+
     return level;
   }
 
@@ -393,7 +397,7 @@ export class RatchetTree {
     for (let i = 0; i < this.leafCount; i++) {
       const leafIndex = new TypedLeafIndex(i);
       const nodeIndex = leafIndex.toNodeIndex();
-      
+
       if (!nodeIndex.isLeaf()) {
         throw new RatchetTreeError(`Invalid leaf position at index ${i}`);
       }
@@ -403,7 +407,7 @@ export class RatchetTree {
     for (let i = 0; i < this.parentNodes.length; i++) {
       const parentIndex = new TypedParentIndex(i);
       const nodeIndex = parentIndex.toNodeIndex();
-      
+
       if (!nodeIndex.isParent()) {
         throw new RatchetTreeError(`Invalid parent position at index ${i}`);
       }
@@ -442,7 +446,7 @@ export class RatchetTree {
   getRootIndex(): TypedNodeIndex {
     if (this.leafCount === 0) return new TypedNodeIndex(0);
     if (this.leafCount === 1) return new TypedNodeIndex(0); // Single leaf is its own root
-    
+
     // For N leaves, root is at index: 2^ceil(log2(N)) - 1
     // This follows RFC 9420's complete binary tree structure
     const depth = Math.ceil(Math.log2(this.leafCount));
@@ -485,7 +489,7 @@ export class RatchetTree {
     if (index.isLeaf()) {
       const leafIndex = index.toLeafIndex();
       const leafNode = this.getLeafNodeByTypedIndex(leafIndex);
-      
+
       return {
         nodeType: NodeType.LEAF,
         content: {
@@ -496,13 +500,15 @@ export class RatchetTree {
     } else {
       const parentIndex = index.toParentIndex();
       const parentNode = this.parentNodes[parentIndex.value] || undefined;
-      
+
       // Recursively compute child hashes
       const leftChild = new TypedNodeIndex(RatchetTree.leftChild(index.value));
-      const rightChild = new TypedNodeIndex(RatchetTree.rightChild(index.value));
+      const rightChild = new TypedNodeIndex(
+        RatchetTree.rightChild(index.value),
+      );
       const leftHash = this.computeTreeHashStructured(leftChild);
       const rightHash = this.computeTreeHashStructured(rightChild);
-      
+
       return {
         nodeType: NodeType.PARENT,
         content: {
@@ -519,13 +525,13 @@ export class RatchetTree {
    */
   private hashTreeHashInput(input: TreeHashInput): Uint8Array {
     const encoder = new Encoder();
-    
+
     encoder.writeUint8(input.nodeType);
-    
+
     if (input.nodeType === NodeType.LEAF) {
       const content = input.content as LeafNodeHashInput;
       encoder.writeUint32(content.leafIndex);
-      
+
       if (content.leafNode) {
         encoder.writeUint8(1); // Present
         encoder.writeBytes(encodeLeafNode(content.leafNode));
@@ -534,18 +540,18 @@ export class RatchetTree {
       }
     } else {
       const content = input.content as ParentNodeHashInput;
-      
+
       if (content.parentNode) {
         encoder.writeUint8(1); // Present
         encoder.writeBytes(encodeParentNode(content.parentNode));
       } else {
         encoder.writeUint8(0); // Absent
       }
-      
+
       encoder.writeVarintVector(content.leftHash);
       encoder.writeVarintVector(content.rightHash);
     }
-    
+
     return hash(this.suite, encoder.finish());
   }
 
@@ -566,7 +572,7 @@ export class RatchetTree {
       if (iterCount++ > 32) {
         throw new RatchetTreeError("Infinite loop detected in direct path");
       }
-      
+
       const parentIdx = RatchetTree.parentTyped(nodeIndex);
       path.push(parentIdx);
       nodeIndex = parentIdx;
@@ -580,7 +586,7 @@ export class RatchetTree {
    */
   directPath(leafIndex: LeafIndex): NodeIndex[] {
     const typedPath = this.getDirectPath(new TypedLeafIndex(leafIndex));
-    return typedPath.map(idx => idx.value);
+    return typedPath.map((idx) => idx.value);
   }
 
   /**
@@ -600,8 +606,10 @@ export class RatchetTree {
       if (iterCount++ > 32) {
         throw new RatchetTreeError("Infinite loop detected in copath");
       }
-      
-      const siblingIdx = new TypedNodeIndex(RatchetTree.sibling(nodeIndex.value));
+
+      const siblingIdx = new TypedNodeIndex(
+        RatchetTree.sibling(nodeIndex.value),
+      );
       copath.push(siblingIdx);
       nodeIndex = RatchetTree.parentTyped(nodeIndex);
     }
@@ -614,7 +622,7 @@ export class RatchetTree {
    */
   copath(leafIndex: LeafIndex): NodeIndex[] {
     const typedCopath = this.getCopath(new TypedLeafIndex(leafIndex));
-    return typedCopath.map(idx => idx.value);
+    return typedCopath.map((idx) => idx.value);
   }
 
   /**
@@ -677,12 +685,15 @@ export class RatchetTree {
     }
 
     const typedIndex = new TypedNodeIndex(index);
-    
+
     // Bounds check
     if (typedIndex.isLeaf() && typedIndex.value / 2 >= this.leafNodes.length) {
       return [];
     }
-    if (typedIndex.isParent() && (typedIndex.value - 1) / 2 >= this.parentNodes.length) {
+    if (
+      typedIndex.isParent() &&
+      (typedIndex.value - 1) / 2 >= this.parentNodes.length
+    ) {
       return [];
     }
 
@@ -711,7 +722,10 @@ export class RatchetTree {
     // Blank parent - concatenate resolutions of children
     const left = RatchetTree.leftChild(index);
     const right = RatchetTree.rightChild(index);
-    return [...this.resolve(left, depth + 1), ...this.resolve(right, depth + 1)];
+    return [
+      ...this.resolve(left, depth + 1),
+      ...this.resolve(right, depth + 1),
+    ];
   }
 
   /**
@@ -723,13 +737,13 @@ export class RatchetTree {
     // Blank ancestors
     let current = index;
     const rootIndex = this.rootIndex();
-    
+
     let iterCount = 0;
     while (current !== rootIndex) {
       if (iterCount++ > 32) {
         throw new RatchetTreeError("Infinite loop detected in blank");
       }
-      
+
       current = RatchetTree.parent(current);
       this.setNode(current, null);
     }
@@ -748,7 +762,7 @@ export class RatchetTree {
       if (iterCount++ > 32) {
         throw new RatchetTreeError("Infinite loop detected in merge");
       }
-      
+
       current = RatchetTree.parent(current);
       const node = this.getNode(current);
 
@@ -766,7 +780,7 @@ export class RatchetTree {
    */
   addLeaf(leaf: LeafNode): LeafIndex {
     const newLeafIndex = this.actualLeafCount;
-    
+
     // Ensure arrays are large enough
     while (this.leafNodes.length <= newLeafIndex) {
       this.leafNodes.push(null);
@@ -824,7 +838,9 @@ export class RatchetTree {
   private extend(): void {
     // In the new architecture, extension is handled more naturally
     // by the separate leaf and parent arrays
-    throw new RatchetTreeError("Tree extension not yet implemented in new architecture");
+    throw new RatchetTreeError(
+      "Tree extension not yet implemented in new architecture",
+    );
   }
 
   /**
@@ -832,12 +848,18 @@ export class RatchetTree {
    */
   private truncate(): void {
     // Simplified truncation - remove trailing null entries
-    while (this.leafNodes.length > 0 && this.leafNodes[this.leafNodes.length - 1] === null) {
+    while (
+      this.leafNodes.length > 0 &&
+      this.leafNodes[this.leafNodes.length - 1] === null
+    ) {
       this.leafNodes.pop();
       this.actualLeafCount = Math.max(0, this.actualLeafCount - 1);
     }
-    
-    while (this.parentNodes.length > 0 && this.parentNodes[this.parentNodes.length - 1] === null) {
+
+    while (
+      this.parentNodes.length > 0 &&
+      this.parentNodes[this.parentNodes.length - 1] === null
+    ) {
       this.parentNodes.pop();
     }
   }
@@ -847,11 +869,13 @@ export class RatchetTree {
    */
   private isSubtreeEmpty(index: NodeIndex, depth = 0): boolean {
     if (depth > 32) {
-      throw new RatchetTreeError("Infinite recursion detected in isSubtreeEmpty");
+      throw new RatchetTreeError(
+        "Infinite recursion detected in isSubtreeEmpty",
+      );
     }
 
     const typedIndex = new TypedNodeIndex(index);
-    
+
     if (this.getNodeByTypedIndex(typedIndex) !== null) {
       return false;
     }
@@ -863,8 +887,8 @@ export class RatchetTree {
     const left = RatchetTree.leftChild(index);
     const right = RatchetTree.rightChild(index);
 
-    return this.isSubtreeEmpty(left, depth + 1) && 
-           this.isSubtreeEmpty(right, depth + 1);
+    return this.isSubtreeEmpty(left, depth + 1) &&
+      this.isSubtreeEmpty(right, depth + 1);
   }
 
   /**
@@ -873,7 +897,7 @@ export class RatchetTree {
   computeParentHash(index: NodeIndex, copath: NodeIndex): Uint8Array {
     const typedIndex = new TypedNodeIndex(index);
     const node = this.getNodeByTypedIndex(typedIndex);
-    
+
     if (!node) {
       throw new RatchetTreeError("Cannot compute parent hash for blank node");
     }
@@ -903,7 +927,10 @@ export class RatchetTree {
   /**
    * Compute original tree hash for parent hash calculation
    */
-  private computeOriginalTreeHash(index: NodeIndex, parentNode: RatchetNode): Uint8Array {
+  private computeOriginalTreeHash(
+    index: NodeIndex,
+    parentNode: RatchetNode,
+  ): Uint8Array {
     // For now, use the regular tree hash
     // In a full implementation, this would handle exclusion of unmerged leaves
     return this.computeTreeHash(index);
@@ -950,7 +977,10 @@ export class RatchetTree {
   /**
    * Compute commit secret from an update path
    */
-  computeCommitSecret(senderIndex: LeafIndex, updatePath: UpdatePath): Uint8Array {
+  computeCommitSecret(
+    senderIndex: LeafIndex,
+    updatePath: UpdatePath,
+  ): Uint8Array {
     const encoder = new Encoder();
     encoder.writeUint32(senderIndex);
     encoder.writeBytes(updatePath.leafNode.encryptionKey);
@@ -1000,7 +1030,9 @@ export class RatchetTree {
   /**
    * Import tree state (updated for new architecture)
    */
-  static import(data: { suite: CipherSuite; nodes: (RatchetNode | null)[] }): RatchetTree {
+  static import(
+    data: { suite: CipherSuite; nodes: (RatchetNode | null)[] },
+  ): RatchetTree {
     return new RatchetTree(data.suite, data.nodes);
   }
 
@@ -1016,8 +1048,8 @@ export class RatchetTree {
   } {
     return {
       leafCount: this.leafCount,
-      leafNodes: this.leafNodes.filter(n => n !== null).length,
-      parentNodes: this.parentNodes.filter(n => n !== null).length,
+      leafNodes: this.leafNodes.filter((n) => n !== null).length,
+      parentNodes: this.parentNodes.filter((n) => n !== null).length,
       rootIndex: this.rootIndex(),
       depth: this.depth,
     };

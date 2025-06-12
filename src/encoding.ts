@@ -984,7 +984,7 @@ function decodeCommit(decoder: Decoder): Commit {
  */
 function decodeUpdatePath(decoder: Decoder): UpdatePath {
   const leafNode = decodeLeafNode(decoder);
-  
+
   const nodesData = decoder.readVarintVector();
   const nodesDecoder = new Decoder(nodesData);
   const nodes: UpdatePathNode[] = [];
@@ -1000,11 +1000,11 @@ function decodeUpdatePath(decoder: Decoder): UpdatePath {
 }
 
 /**
- * Decode UpdatePathNode from decoder  
+ * Decode UpdatePathNode from decoder
  */
 function decodeUpdatePathNode(decoder: Decoder): UpdatePathNode {
   const encryptionKey = decoder.readVarintVector();
-  
+
   const secretsData = decoder.readVarintVector();
   const secretsDecoder = new Decoder(secretsData);
   const encryptedPathSecrets: Uint8Array[] = [];
@@ -1066,13 +1066,13 @@ export function decodeGroupInfo(data: Uint8Array): GroupInfo {
 }
 
 /**
- * Encode GroupSecrets 
+ * Encode GroupSecrets
  */
 export function encodeGroupSecrets(secrets: GroupSecrets): Uint8Array {
   const encoder = new Encoder();
 
   encoder.writeVarintVector(secrets.joinerSecret);
-  
+
   if (secrets.pathSecret) {
     encoder.writeUint8(1);
     encoder.writeVarintVector(secrets.pathSecret);

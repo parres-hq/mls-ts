@@ -123,7 +123,7 @@ export interface Sender {
   senderIndex?: number;
 }
 
-// Credential structure  
+// Credential structure
 export interface Credential {
   credentialType: CredentialType;
   identity?: Uint8Array; // For basic credentials
@@ -416,7 +416,9 @@ export interface MessageKeys {
     key: Uint8Array;
     nonce: Uint8Array;
   };
-  deriveKeyNonce(generation: bigint): Promise<{ key: Uint8Array; nonce: Uint8Array }>;
+  deriveKeyNonce(
+    generation: bigint,
+  ): Promise<{ key: Uint8Array; nonce: Uint8Array }>;
   key: Uint8Array; // Shortcut property for current key
   nonce: Uint8Array; // Shortcut property for current nonce
 }

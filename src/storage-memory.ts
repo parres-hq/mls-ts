@@ -21,8 +21,12 @@ export class InMemoryMLSStorage extends MLSStorage {
   private groups: Map<string, StoredGroup> = new Map();
   private epochSecrets: Map<string, Map<string, StoredEpochSecrets>> =
     new Map();
-  private messageKeys: Map<string, { key: Uint8Array; nonce: Uint8Array }> = new Map();
-  private pendingProposals: Map<string, Array<{ proposal: Uint8Array; proposalRef: Uint8Array }>> = new Map();
+  private messageKeys: Map<string, { key: Uint8Array; nonce: Uint8Array }> =
+    new Map();
+  private pendingProposals: Map<
+    string,
+    Array<{ proposal: Uint8Array; proposalRef: Uint8Array }>
+  > = new Map();
 
   /**
    * Initialize the storage backend (no-op for in-memory)
@@ -277,7 +281,7 @@ export class InMemoryMLSStorage extends MLSStorage {
     const keyPackages: StoredKeyPackage[] = [];
     for (const [clientId, packages] of this.keyPackages) {
       for (const pkg of packages.values()) {
-        keyPackages.push(pkg);  // Remove the clientId spread since it's not part of StoredKeyPackage
+        keyPackages.push(pkg); // Remove the clientId spread since it's not part of StoredKeyPackage
       }
     }
 

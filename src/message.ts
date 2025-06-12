@@ -3,7 +3,7 @@
  *
  * This module implements the message layer for MLS, handling the secure packaging
  * and processing of both application and protocol messages using HPKE encryption.
- * 
+ *
  * Key components:
  * - PublicMessage: Unencrypted messages (proposals, commits)
  * - PrivateMessage: HPKE-encrypted application data
@@ -19,8 +19,8 @@ import {
   type GroupContext,
   type MLSMessage,
   type PrivateMessage,
-  type PublicMessage,
   ProtocolVersion,
+  type PublicMessage,
   type Sender,
   type SenderType,
   WireFormat,
@@ -37,9 +37,9 @@ import {
 import type {
   contextOpen,
   contextSeal,
+  HPKEContext,
   setupBaseR,
   setupBaseS,
-  HPKEContext,
 } from "./hpke.ts";
 
 import {
@@ -159,18 +159,22 @@ export class MessageProcessor {
     const content = publicMessage.content;
 
     // Verify signature
-    if (!this.verifyPublicMessageSignature(
-      content,
-      publicMessage.authTag,
-      senderPublicKey,
-      groupContext,
-    )) {
+    if (
+      !this.verifyPublicMessageSignature(
+        content,
+        publicMessage.authTag,
+        senderPublicKey,
+        groupContext,
+      )
+    ) {
       throw new Error("Invalid message signature");
     }
 
     // Validate epoch
     if (content.epoch !== this.context.epoch) {
-      throw new Error(`Message epoch mismatch: expected ${this.context.epoch}, got ${content.epoch}`);
+      throw new Error(
+        `Message epoch mismatch: expected ${this.context.epoch}, got ${content.epoch}`,
+      );
     }
 
     // Validate group ID
@@ -195,7 +199,9 @@ export class MessageProcessor {
 
     // Validate epoch
     if (privateMessage.epoch !== this.context.epoch) {
-      throw new Error(`Message epoch mismatch: expected ${this.context.epoch}, got ${privateMessage.epoch}`);
+      throw new Error(
+        `Message epoch mismatch: expected ${this.context.epoch}, got ${privateMessage.epoch}`,
+      );
     }
 
     // Validate group ID
@@ -251,7 +257,7 @@ export class MessageProcessor {
     return signWithLabel(
       this.context.cipherSuite,
       privateKey,
-      "FramedContentTBS", 
+      "FramedContentTBS",
       tbsBytes,
     );
   }
@@ -285,12 +291,12 @@ export class MessageProcessor {
     // Simplified sender data - in full implementation would be more complex
     const senderBytes = new Uint8Array(8);
     const view = new DataView(senderBytes.buffer);
-    
+
     view.setUint32(0, sender.senderType, false);
     if (sender.leafIndex !== undefined) {
       view.setUint32(4, sender.leafIndex, false);
     }
-    
+
     return senderBytes;
   }
 
@@ -301,7 +307,7 @@ export class MessageProcessor {
   ): Promise<{ ciphertext: Uint8Array; nonce: Uint8Array }> {
     // Derive message key from encryption secret and generation
     const messageKey = this.deriveMessageKey(generation);
-    
+
     // Create nonce from generation and sender data
     const nonce = this.createNonce(generation, senderData);
 
@@ -321,17 +327,21 @@ export class MessageProcessor {
     ciphertext: Uint8Array,
     aad: Uint8Array,
     generation: bigint,
-  ): Promise<{ contentBytes: Uint8Array; nonce: Uint8Array; reusedNonce: boolean }> {
-    // Derive message key from encryption secret and generation  
+  ): Promise<
+    { contentBytes: Uint8Array; nonce: Uint8Array; reusedNonce: boolean }
+  > {
+    // Derive message key from encryption secret and generation
     const messageKey = this.deriveMessageKey(generation);
-    
+
     // Reconstruct nonce (simplified - real implementation would extract from message)
     const nonce = this.createNonce(generation, aad);
 
     // Check for nonce reuse
     const reusedNonce = this.isNonceUsed(nonce);
     if (reusedNonce) {
-      console.warn(`Possible replay attack: nonce reuse detected for generation ${generation}`);
+      console.warn(
+        `Possible replay attack: nonce reuse detected for generation ${generation}`,
+      );
     }
 
     // AEAD decrypt
@@ -352,7 +362,9 @@ export class MessageProcessor {
     const view = new DataView(generationBytes.buffer);
     view.setBigUint64(0, generation, false);
 
-    const input = new Uint8Array(this.context.encryptionSecret.length + generationBytes.length);
+    const input = new Uint8Array(
+      this.context.encryptionSecret.length + generationBytes.length,
+    );
     input.set(this.context.encryptionSecret, 0);
     input.set(generationBytes, this.context.encryptionSecret.length);
 
@@ -362,14 +374,14 @@ export class MessageProcessor {
   private createNonce(generation: bigint, senderData: Uint8Array): Uint8Array {
     const nonceSize = this.getNonceSize();
     const nonce = new Uint8Array(nonceSize);
-    
+
     // Simple nonce construction: generation + hash of sender data
     const generationBytes = new Uint8Array(8);
     const view = new DataView(generationBytes.buffer);
     view.setBigUint64(0, generation, false);
 
     const senderHash = hash(this.context.cipherSuite, senderData);
-    
+
     // XOR generation bytes with sender hash prefix
     for (let i = 0; i < Math.min(8, nonceSize); i++) {
       nonce[i] = generationBytes[i] ^ (senderHash[i] || 0);
@@ -405,7 +417,7 @@ export class MessageProcessor {
   private getKeySize(): number {
     // Return key size based on cipher suite
     switch (this.context.cipherSuite) {
-      case 0x0001: // MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519 
+      case 0x0001: // MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519
         return 16;
       case 0x0002: // MLS_128_DHKEMP256_AES128GCM_SHA256_P256
         return 16;
@@ -420,7 +432,9 @@ export class MessageProcessor {
       case 0x0007: // MLS_256_DHKEMX448_CHACHA20POLY1305_SHA512_Ed448
         return 32;
       default:
-        throw new Error(`Unsupported cipher suite: ${this.context.cipherSuite}`);
+        throw new Error(
+          `Unsupported cipher suite: ${this.context.cipherSuite}`,
+        );
     }
   }
 
@@ -429,7 +443,7 @@ export class MessageProcessor {
     switch (this.context.cipherSuite) {
       case 0x0001: // AES128GCM
       case 0x0002:
-      case 0x0004: // AES256GCM  
+      case 0x0004: // AES256GCM
       case 0x0005:
       case 0x0006:
         return 12; // GCM nonce size
@@ -437,7 +451,9 @@ export class MessageProcessor {
       case 0x0007:
         return 12; // ChaCha20Poly1305 nonce size
       default:
-        throw new Error(`Unsupported cipher suite: ${this.context.cipherSuite}`);
+        throw new Error(
+          `Unsupported cipher suite: ${this.context.cipherSuite}`,
+        );
     }
   }
 
@@ -451,7 +467,7 @@ export class MessageProcessor {
 
   private nonceToString(nonce: Uint8Array): string {
     return Array.from(nonce)
-      .map(b => b.toString(16).padStart(2, "0"))
+      .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
   }
 }
@@ -477,7 +493,9 @@ export function serializeMLSMessage(message: MLSMessage): Uint8Array {
 /**
  * Create a message processor for a given context
  */
-export function createMessageProcessor(context: MessageContext): MessageProcessor {
+export function createMessageProcessor(
+  context: MessageContext,
+): MessageProcessor {
   return new MessageProcessor(context);
 }
 
@@ -492,8 +510,10 @@ export function validateMLSMessage(message: MLSMessage): boolean {
     }
 
     // Check wire format is valid
-    if (message.wireFormat !== WireFormat.PublicMessage && 
-        message.wireFormat !== WireFormat.PrivateMessage) {
+    if (
+      message.wireFormat !== WireFormat.PublicMessage &&
+      message.wireFormat !== WireFormat.PrivateMessage
+    ) {
       return false;
     }
 
@@ -503,10 +523,10 @@ export function validateMLSMessage(message: MLSMessage): boolean {
       return pub.content !== undefined && pub.authTag !== undefined;
     } else {
       const priv = message.message as PrivateMessage;
-      return priv.groupId !== undefined && 
-             priv.epoch !== undefined &&
-             priv.contentType !== undefined &&
-             priv.encryptedSenderData !== undefined;
+      return priv.groupId !== undefined &&
+        priv.epoch !== undefined &&
+        priv.contentType !== undefined &&
+        priv.encryptedSenderData !== undefined;
     }
   } catch {
     return false;
@@ -527,7 +547,7 @@ export function getMessageEpoch(message: MLSMessage): bigint {
 }
 
 /**
- * Extract group ID from any message type  
+ * Extract group ID from any message type
  */
 export function getMessageGroupId(message: MLSMessage): Uint8Array {
   if (message.wireFormat === WireFormat.PublicMessage) {
@@ -559,7 +579,7 @@ export function isProtocolMessage(message: MLSMessage): boolean {
   if (message.wireFormat === WireFormat.PublicMessage) {
     const pub = message.message as PublicMessage;
     return pub.content.contentType === ContentType.PROPOSAL ||
-           pub.content.contentType === ContentType.COMMIT;
+      pub.content.contentType === ContentType.COMMIT;
   } else {
     // Private messages are typically application data
     return false;

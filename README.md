@@ -77,6 +77,7 @@ messaging with:
 ### ⚠️ Security Status
 
 **Current Assessment**: Research/Educational Quality
+
 - ✅ Architecturally sound and RFC-compliant
 - ✅ Using well-audited cryptographic libraries
 - ✅ Strong TypeScript type safety
@@ -109,11 +110,11 @@ deno run --allow-all examples/basic-example.ts
 ## Usage Example (Current Capabilities)
 
 ```typescript
-import { 
-  CipherSuite, 
-  createMLSClient, 
-  createGroup, 
-  joinGroup 
+import {
+  CipherSuite,
+  createGroup,
+  createMLSClient,
+  joinGroup,
 } from "./src/mod.ts";
 
 // Create MLS clients
@@ -130,10 +131,10 @@ const bobKeyPackage = await bob.generateKeyPackage(suite);
 // Alice creates a new group
 const groupId = new TextEncoder().encode("my-secure-group");
 const aliceGroup = await createGroup(
-  groupId, 
-  suite, 
+  groupId,
+  suite,
   new TextEncoder().encode("alice@example.com"),
-  alice.storage
+  alice.storage,
 );
 
 // Alice adds Bob to the group
@@ -144,7 +145,7 @@ const { commit, welcome } = await aliceGroup.commit([addProposal]);
 const bobGroup = await joinGroup(
   welcome!,
   [bobKeyPackage],
-  bob.storage  
+  bob.storage,
 );
 
 // Send encrypted messages
@@ -169,10 +170,10 @@ import { resumeGroup, ResumptionPSKUsage } from "./src/group.ts";
 
 const resumedGroup = await resumeGroup(
   aliceGroup,
-  new TextEncoder().encode("resumed-group"), 
+  new TextEncoder().encode("resumed-group"),
   [0, 1], // Leaf indices to include
   ResumptionPSKUsage.APPLICATION,
-  alice.storage
+  alice.storage,
 );
 ```
 

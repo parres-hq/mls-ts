@@ -118,7 +118,9 @@ export class KeySchedule {
   /**
    * Get message keys for a generation
    */
-  getMessageKeys(generation: bigint): Promise<{ key: Uint8Array; nonce: Uint8Array }> {
+  getMessageKeys(
+    generation: bigint,
+  ): Promise<{ key: Uint8Array; nonce: Uint8Array }> {
     // This is a simplified implementation
     // In a full implementation, this would derive keys from the secret tree
     if (!this.epochSecrets || !this.secretTree) {

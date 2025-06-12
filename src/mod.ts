@@ -13,11 +13,11 @@ export * from "./crypto.ts";
 export * from "./encoding.ts";
 
 // Re-export storage (main interface)
-export type { 
-  MLSStorage, 
-  StoredKeyPackage, 
-  StoredGroup, 
-  StoredEpochSecrets
+export type {
+  MLSStorage,
+  StoredEpochSecrets,
+  StoredGroup,
+  StoredKeyPackage,
 } from "./storage.ts";
 export { createStorage } from "./storage.ts";
 
@@ -28,26 +28,22 @@ export { InMemoryMLSStorage } from "./storage-memory.ts";
 export * from "./ratchet-tree.ts";
 
 // Re-export key schedule (avoiding MessageKeys conflict)
-export { 
-  KeySchedule, 
-  type EpochSecrets,
-  SecretTree
-} from "./key-schedule.ts";
+export { type EpochSecrets, KeySchedule, SecretTree } from "./key-schedule.ts";
 
 // Re-export client
 export * from "./client.ts";
 
-// Re-export HPKE (avoiding HPKECiphertext conflict) 
-export { 
-  setupBaseS,
-  setupBaseR,
-  setupPSKS, 
-  setupPSKR,
-  seal,
-  open,
-  contextSeal,
+// Re-export HPKE (avoiding HPKECiphertext conflict)
+export {
+  contextExport,
   contextOpen,
-  contextExport
+  contextSeal,
+  open,
+  seal,
+  setupBaseR,
+  setupBaseS,
+  setupPSKR,
+  setupPSKS,
 } from "./hpke.ts";
 export type { HPKEContext } from "./hpke.ts";
 
