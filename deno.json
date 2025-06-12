@@ -11,7 +11,8 @@
     "test:watch": "deno test --allow-all --watch",
     "check": "deno check src/mod.ts",
     "fmt": "deno fmt",
-    "lint": "deno lint"
+    "lint": "deno lint",
+    "precommit": "deno fmt && deno lint && deno check src/mod.ts && deno test --allow-all"
   },
   "imports": {
     "@noble/ciphers": "npm:@noble/ciphers@^0.4.1",
