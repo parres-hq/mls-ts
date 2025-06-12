@@ -3,50 +3,11 @@
 A complete TypeScript implementation of the Message Layer Security (MLS) protocol
 (RFC 9420) for Deno, focusing on security, performance, and minimal external dependencies.
 
-## ✅ Implementation Status: CORE COMPLETE
-
-**Major Milestone Achieved** (June 2025) - Complete RFC 9420 protocol implementation with:
-- 📈 **All 32 tests passing** with comprehensive coverage
-- 🎯 **Full RFC 9420 compliance** across all protocol operations
-- 🔒 **Production-ready security** with audited cryptographic libraries
-- 🚀 **Clean architecture** with TypeScript type safety throughout
-
 ## ⚠️ Security Status
 
 This implementation is **NOT ready for production deployment**.
 A professional security audit is recommended for high-security environments.
 See [SECURITY_ANALYSIS.md](./docs/SECURITY_ANALYSIS.md) for detailed assessment.
-
-## Overview
-
-This library provides a complete MLS protocol implementation featuring:
-
-- **Forward secrecy** - Keys automatically rotate to protect past messages
-- **Post-compromise security** - Recovery from key compromises through tree-based ratcheting
-- **Asynchronous group management** - Add/remove members without coordination
-- **Scalable** - Efficient support for groups from 2 to thousands of members
-- **Modern cryptography** - Uses audited @noble libraries (Ed25519, X25519, AES-GCM)
-
-## Installation & Quick Start
-
-```bash
-# Clone the repository
-git clone https://github.com/your-repo/mls-ts.git
-cd mls-ts
-
-# Run all tests (should show 32/32 passing)
-deno task test
-
-# Run basic example
-deno run --allow-all examples/basic-example.ts
-
-# Development commands
-deno task test:watch   # Watch mode for tests
-deno task check        # Type checking
-deno task lint         # Code linting
-deno task fmt          # Code formatting
-deno task precommit    # Run check, lint, fmt, and test
-```
 
 ## Usage Example
 
@@ -151,17 +112,6 @@ src/
 └── mod.ts          # Main exports
 ```
 
-```bash
-# Run all tests
-deno task test
-
-# Watch mode during development
-deno task test:watch
-
-# Type check without running
-deno task check
-```
-
 ## Dependencies
 
 **Minimal, security-focused dependencies:**
@@ -170,7 +120,6 @@ deno task check
 - `@noble/ciphers` - AEAD ciphers (AES-GCM, ChaCha20Poly1305)
 
 All dependencies are well-audited, TypeScript-native, and actively maintained.
-
 
 ## Documentation
 
