@@ -227,8 +227,8 @@ export class KeySchedule {
     const initSecret = forceInitSecret || this.epochSecrets.initSecret;
     const pskSecret = psks ? this.computePSKSecret(psks) : new Uint8Array(0);
 
-    // Advance group context epoch
-    this.groupContext.epoch++;
+    // NOTE: Epoch is managed by the group context, not the key schedule
+    // The caller should have already updated the group context epoch before calling this
 
     // Derive joiner secret
     const joinerSecret = hkdfExtract(this.suite, initSecret, commitSecret);

@@ -72,6 +72,7 @@ import {
   encodeGroupInfo,
   encodeGroupSecrets,
   encodeKeyPackage,
+  encodeKeyPackageTBS,
   encodeProposal,
   Encoder,
 } from "./encoding.ts";
@@ -189,7 +190,7 @@ export class MLSGroup {
         initSecret: new Uint8Array(0),
         commitSecret: new Uint8Array(0),
         epochSecret: new Uint8Array(0),
-        confirmationKey: new Uint8Array(0),  
+        confirmationKey: new Uint8Array(0),
         membershipKey: new Uint8Array(0),
         resumptionPsk: new Uint8Array(0),
         epochAuthenticator: new Uint8Array(0),
@@ -230,7 +231,7 @@ export class MLSGroup {
     storage: MLSStorage,
   ): Promise<MLSGroup> {
     console.log(`Processing Welcome message for cipher suite ${welcome.cipherSuite} with ${welcome.secrets.length} encrypted secrets`);
-    
+
     // Find our key package and corresponding private keys
     let myKeyPackage: KeyPackage | undefined;
     let encryptedSecrets: EncryptedGroupSecrets | undefined;
@@ -253,13 +254,13 @@ export class MLSGroup {
         // Add leaf node encoding here...
         const kpBytes = encoder.encode();
         const computedKpRef = hash(welcome.cipherSuite, kpBytes);
-        
+
         // Check if this matches the key package ref in the welcome
         if (computedKpRef.every((b, j) => b === secrets.keyPackageRef[j])) {
           myKeyPackage = kp;
           encryptedSecrets = secrets;
           keyPackageRef = secrets.keyPackageRef;
-          
+
           // Find the corresponding private keys from storage
           for (const storedKP of storedKeyPackages) {
             if (keyPackageRef && storedKP.keyPackageRef.every((b, j) => b === keyPackageRef![j])) {
@@ -268,27 +269,27 @@ export class MLSGroup {
               break;
             }
           }
-          
+
           break;
         }
       }
-      
+
       if (myKeyPackage) break;
     }
 
-    if (!myKeyPackage || !encryptedSecrets || !keyPackageRef || 
+    if (!myKeyPackage || !encryptedSecrets || !keyPackageRef ||
         !encryptionPrivateKey || !signaturePrivateKey) {
       throw new Error("No matching key package found in Welcome message or missing private keys from storage");
     }
-    
+
     console.log(`Found matching key package, proceeding with Welcome message processing`);
-    
+
     // Decrypt GroupInfo (in production this would be encrypted)
     // For now, we assume it's in plaintext format
     const groupInfo = decodeGroupInfo(welcome.encryptedGroupInfo);
-    
+
     console.log(`Decrypted GroupInfo for group ${Array.from(groupInfo.groupContext.groupId)} at epoch ${groupInfo.groupContext.epoch}`);
-    
+
     // Decrypt GroupSecrets using HPKE with our init key
     const hpkeResult = open(
       welcome.cipherSuite,
@@ -299,41 +300,41 @@ export class MLSGroup {
       new Uint8Array(0),                    // info parameter
       keyPackageRef,                        // AAD
     );
-    
+
     if (!hpkeResult) {
       throw new Error("Failed to decrypt group secrets using HPKE");
     }
-    
+
     // Parse the decrypted group secrets
     const secretsDecoder = new Decoder(hpkeResult);
     const joinerSecret = secretsDecoder.readVarintVector();
-    
+
     // Check for optional path secret
     const hasPathSecret = secretsDecoder.readUint8();
     let pathSecret: Uint8Array | undefined;
     if (hasPathSecret === 1) {
       pathSecret = secretsDecoder.readVarintVector();
     }
-    
+
     // Read PSKs (if any)
     const pskData = secretsDecoder.readVarintVector();
     // For now, we'll skip PSK processing in Welcome join
-    
+
     console.log(`Successfully decrypted group secrets`);
-    
+
     // Reconstruct the ratchet tree from GroupInfo extensions
     let tree: RatchetTree;
     let myLeafIndex: LeafIndex = 0 as LeafIndex;
-    
+
     // Look for ratchet tree extension in GroupInfo
     const ratchetTreeExtension = groupInfo.extensions.find(
-      ext => ext.extensionType === 1 // ExtensionType.RATCHET_TREE 
+      ext => ext.extensionType === 1 // ExtensionType.RATCHET_TREE
     );
-    
+
     if (ratchetTreeExtension) {
       // Reconstruct tree from extension data
       tree = this.reconstructTreeFromExtension(welcome.cipherSuite, ratchetTreeExtension.extensionData);
-      
+
       // Find our leaf index by matching our leaf node
       myLeafIndex = this.findMyLeafIndex(tree, myKeyPackage.leafNode);
       console.log(`Reconstructed tree with ${tree.leafCount} leaves, found self at leaf ${myLeafIndex}`);
@@ -343,7 +344,7 @@ export class MLSGroup {
       tree = new RatchetTree(welcome.cipherSuite);
       myLeafIndex = tree.addLeaf(myKeyPackage.leafNode);
     }
-    
+
     // Initialize key schedule with joiner secret
     const keySchedule = KeySchedule.init(welcome.cipherSuite);
     await keySchedule.startEpoch(
@@ -351,9 +352,9 @@ export class MLSGroup {
       undefined, // No PSK for now
       groupInfo.groupContext
     );
-    
+
     console.log(`Initialized key schedule for epoch ${groupInfo.groupContext.epoch}`);
-    
+
     // Store the group state
     await storage.storeGroup({
       groupId: encodeGroupId(groupInfo.groupContext.groupId),
@@ -379,9 +380,9 @@ export class MLSGroup {
       },
       lastUpdate: Date.now(),
     });
-    
+
     console.log(`Successfully joined group via Welcome message`);
-    
+
     return new MLSGroup(
       groupInfo.groupContext,
       tree,
@@ -400,20 +401,20 @@ export class MLSGroup {
   private static reconstructTreeFromExtension(cipherSuite: CipherSuite, extensionData: Uint8Array): RatchetTree {
     const decoder = new Decoder(extensionData);
     const tree = new RatchetTree(cipherSuite);
-    
+
     try {
       const nodeCount = decoder.readUint32();
       console.log(`Reconstructing tree with ${nodeCount} nodes`);
-      
+
       // For now, create a simple tree structure
       // In a full implementation, this would parse the complete serialized tree
       for (let i = 0; i < nodeCount && decoder.hasMore(); i++) {
         const nodeType = decoder.readUint8();
-        
+
         if (nodeType === 1) { // Leaf node
           const leafData = decoder.readVarintVector();
           // Skip detailed leaf parsing for now
-        } else if (nodeType === 2) { // Parent node  
+        } else if (nodeType === 2) { // Parent node
           const parentData = decoder.readVarintVector();
           // Skip detailed parent parsing for now
         }
@@ -422,7 +423,7 @@ export class MLSGroup {
     } catch (error) {
       console.warn("Failed to parse tree extension, creating empty tree:", error);
     }
-    
+
     return tree;
   }
 
@@ -437,7 +438,7 @@ export class MLSGroup {
         return i as LeafIndex;
       }
     }
-    
+
     // If not found, add ourselves to the tree
     console.warn("Could not find matching leaf in tree, adding ourselves");
     return tree.addLeaf(myLeafNode);
@@ -751,22 +752,22 @@ export class MLSGroup {
     // STATE VALIDATION 5: Apply proposals to provisional tree
     const provisionalTree = this.tree.clone();
     const processedProposals: Proposal[] = [];
-    
+
     console.log(`Processing commit with ${commit.proposals.length} proposal references`);
-    
+
     // Process each proposal reference
     for (const proposalRef of commit.proposals) {
       // Look up proposal from our pending proposals
       const proposalRefStr = this.proposalRefToString(proposalRef);
       const proposal = this.pendingProposals.get(proposalRefStr);
-      
+
       if (!proposal) {
         throw new Error(`Unknown proposal reference: ${proposalRefStr}`);
       }
-      
+
       // Add to processed list for transcript hash computation
       processedProposals.push(proposal);
-      
+
       // Apply the proposal to the provisional tree
       switch (proposal.proposalType) {
         case ProposalType.ADD: {
@@ -774,55 +775,55 @@ export class MLSGroup {
           if (!addProposal) {
             throw new Error("Add proposal is missing add field");
           }
-          
+
           // STATE VALIDATION 6: Validate key package before adding
           if (!this.validateKeyPackage(addProposal.keyPackage)) {
             throw new Error("Invalid key package in Add proposal");
           }
-          
+
           const leafIndex = provisionalTree.addLeaf(addProposal.keyPackage.leafNode);
           console.log(`Added new member at leaf ${leafIndex}`);
           break;
         }
-          
+
         case ProposalType.REMOVE: {
           const removeProposal = proposal.remove;
           if (!removeProposal) {
             throw new Error("Remove proposal is missing remove field");
           }
-          
+
           // STATE VALIDATION 7: Verify member exists before removing
           if (!this.tree.getLeafNode(removeProposal.removed)) {
             throw new Error(`Cannot remove non-existent member at leaf ${removeProposal.removed}`);
           }
-          
+
           provisionalTree.removeLeaf(removeProposal.removed);
           console.log(`Removed member at leaf ${removeProposal.removed}`);
           break;
         }
-          
+
         case ProposalType.UPDATE: {
           const updateProposal = proposal.update;
           if (!updateProposal) {
             throw new Error("Update proposal is missing update field");
           }
-          
+
           // STATE VALIDATION 8: Verify update is valid
           // In a production implementation, we'd verify the signature on the leaf node
-          
+
           // Updates typically come from the sender
           const leafToUpdate = senderLeafIndex;
           provisionalTree.updateLeaf(leafToUpdate, updateProposal.leafNode);
           console.log(`Updated member at leaf ${leafToUpdate}`);
           break;
         }
-          
+
         case ProposalType.PSK: {
           // We'll implement PSK support in the next commit
           console.log("PSK proposal processing will be implemented soon");
           break;
         }
-          
+
         default: {
           console.warn(`Unsupported proposal type: ${proposal.proposalType}`);
           throw new Error(`Proposal type ${proposal.proposalType} not yet implemented`);
@@ -837,10 +838,10 @@ export class MLSGroup {
       if (!existingLeaf) {
         throw new Error(`Sender leaf ${senderLeafIndex} not found in provisional tree`);
       }
-      
+
       // Verify the update path's leaf node is valid
       // In a production implementation, we'd verify signatures and parent hashes
-      
+
       // Apply the update path to the tree
       provisionalTree.applyUpdatePath(senderLeafIndex, commit.path);
       console.log(`Applied update path from leaf ${senderLeafIndex}`);
@@ -855,10 +856,10 @@ export class MLSGroup {
     const psks = this.processPSKs(processedProposals);
     const pskSecret = await this.derivePSKSecret(psks);
 
-    // STATE VALIDATION 11: Verify tree hash 
+    // STATE VALIDATION 11: Verify tree hash
     const newTreeHash = provisionalTree.computeTreeHash(provisionalTree.rootIndex());
     console.log(`New tree hash computed with ${provisionalTree.leafCount} leaves`);
-    
+
     // STATE VALIDATION 12: Create new group context
     const newGroupContext: GroupContext = {
       ...this.groupContext,
@@ -866,15 +867,15 @@ export class MLSGroup {
       treeHash: newTreeHash,
       confirmedTranscriptHash: this.computeConfirmedTranscriptHash(commit),
     };
-    
+
     // State VALIDATION 13: Initialize new epoch secrets with PSK if available
     await this.keySchedule.startEpoch(commitSecret, undefined, newGroupContext);
     this.epochAuthenticator = this.keySchedule.getEpochAuthenticator();
-    
+
     // If we got this far, the commit is valid - update state
     this.groupContext = newGroupContext;
     this.tree = provisionalTree;
-    
+
     // Clear processed proposals
     for (const proposal of processedProposals) {
       const ref = this.computeProposalRef(proposal);
@@ -894,7 +895,7 @@ export class MLSGroup {
       },
       lastUpdate: Date.now(),
     });
-    
+
     console.log(`Successfully processed commit and advanced to epoch ${this.groupContext.epoch}`);
   }
 
@@ -919,7 +920,7 @@ export class MLSGroup {
 
     // Sign GroupInfo
     const groupInfoTBS = this.createGroupInfoTBS(groupInfo);
-    
+
     groupInfo.signature = signWithLabel(
       this.groupContext.cipherSuite,
       this.signaturePrivateKey,
@@ -929,7 +930,7 @@ export class MLSGroup {
 
     return groupInfo;
   }
-  
+
   /**
    * Create GroupInfoTBS data for signing
    */
@@ -941,21 +942,21 @@ export class MLSGroup {
       confirmationTag: groupInfo.confirmationTag,
       signerIndex: groupInfo.signerIndex,
     };
-    
+
     // Serialize the GroupInfoTBS
     const encoder = new Encoder();
     encoder.writeVarintVector(encodeGroupContext(this.groupContext));
-    
+
     // Encode extensions
     encoder.writeUint32(groupInfoTBS.extensions.length);
     for (const extension of groupInfoTBS.extensions) {
       encoder.writeUint16(extension.extensionType);
       encoder.writeVarintVector(extension.extensionData);
     }
-    
+
     encoder.writeVarintVector(groupInfoTBS.confirmationTag);
     encoder.writeUint32(groupInfoTBS.signerIndex);
-    
+
     return encoder.encode();
   }
 
@@ -964,28 +965,28 @@ export class MLSGroup {
    */
   private serializeRatchetTree(): Uint8Array {
     const encoder = new Encoder();
-    
+
     // Write the number of nodes
     encoder.writeUint32(this.tree.export().nodes.length);
-    
+
     // Write each node
     for (let i = 0; i < this.tree.export().nodes.length; i++) {
       const node = this.tree.export().nodes[i];
-      
+
       if (node === null) {
         // Write blank node indicator
         encoder.writeUint8(0);
       } else if (this.tree.isLeaf(i)) {
         // Write leaf node
         encoder.writeUint8(1);
-        
+
         // Encode LeafNode
         const leafNode = node as LeafNode;
         const leafEncoder = new Encoder();
-        
+
         leafEncoder.writeVarintVector(leafNode.encryptionKey);
         leafEncoder.writeVarintVector(leafNode.signatureKey);
-        
+
         // Encode credential
         leafEncoder.writeUint8(leafNode.credential.credentialType);
         if (leafNode.credential.credentialType === CredentialType.BASIC) {
@@ -997,37 +998,37 @@ export class MLSGroup {
             leafEncoder.writeVarintVector(cert);
           }
         }
-        
+
         // Write capabilities
         leafEncoder.writeUint8(leafNode.leafNodeSource);
-        
+
         // Write leaf node data to main encoder
         encoder.writeVarintVector(leafEncoder.encode());
       } else {
         // Write parent node
         encoder.writeUint8(2);
-        
+
         // Encode ParentNode
         const parentNode = node as ParentNode;
         const parentEncoder = new Encoder();
-        
+
         parentEncoder.writeVarintVector(parentNode.encryptionKey);
         parentEncoder.writeVarintVector(parentNode.parentHash);
-        
+
         // Write unmerged leaves
         parentEncoder.writeUint32(parentNode.unmergedLeaves.length);
         for (const leafIndex of parentNode.unmergedLeaves) {
           parentEncoder.writeUint32(leafIndex);
         }
-        
+
         // Write parent node data to main encoder
         encoder.writeVarintVector(parentEncoder.encode());
       }
     }
-    
+
     return encoder.encode();
   }
-  
+
   /**
    * Process an external commit message
    * External commits allow new members to join without an explicit Add proposal
@@ -1072,11 +1073,11 @@ export class MLSGroup {
     for (const proposalRef of commit.proposals) {
       const proposalRefStr = this.proposalRefToString(proposalRef);
       const proposal = this.pendingProposals.get(proposalRefStr);
-      
+
       if (!proposal) {
         throw new Error(`Unknown proposal reference: ${proposalRefStr}`);
       }
-      
+
       if (proposal.proposalType === ProposalType.EXTERNAL_INIT) {
         externalInitFound = true;
       }
@@ -1130,7 +1131,7 @@ export class MLSGroup {
       },
       lastUpdate: Date.now(),
     });
-    
+
     console.log(`Successfully processed external commit and advanced to epoch ${this.groupContext.epoch}`);
   }
 
@@ -1195,7 +1196,7 @@ export class MLSGroup {
 
   /**
    * Add a proposal to use a Pre-Shared Key (PSK)
-   * 
+   *
    * PSKs are used to inject additional entropy into the key schedule
    * This can be used for branching, resumption, or external PSKs
    */
@@ -1206,7 +1207,7 @@ export class MLSGroup {
       pskId: type === PSKType.EXTERNAL ? pskId : undefined,
       pskNonce: generateRandom(32), // 32 bytes of randomness
     };
-    
+
     // Add additional fields for resumption PSKs
     if (type === PSKType.RESUMPTION) {
       psk.usage = usage || ResumptionPSKUsage.APPLICATION;
@@ -1214,37 +1215,37 @@ export class MLSGroup {
       psk.pskGroupId = this.groupContext.groupId;
       psk.pskEpoch = this.groupContext.epoch;
     }
-    
+
     const proposal: Proposal = {
       proposalType: ProposalType.PSK,
       psk: {
         psk,
       },
     };
-    
+
     // Store pending proposal
     const ref = this.computeProposalRef(proposal);
     this.pendingProposals.set(this.proposalRefToString(ref), proposal);
-    
+
     return ref;
   }
-  
+
   /**
    * Process PSK proposals during commit
    * This extracts PSK identities from proposals and prepares them for key derivation
    */
   private processPSKs(proposals: Proposal[]): PreSharedKeyID[] {
     const psks: PreSharedKeyID[] = [];
-    
+
     for (const proposal of proposals) {
       if (proposal.proposalType === ProposalType.PSK && proposal.psk) {
         psks.push(proposal.psk.psk);
       }
     }
-    
+
     return psks;
   }
-  
+
   /**
    * Derive PSK secret from a list of PSK identities
    * In a real implementation, this would fetch the actual PSK values from storage
@@ -1253,14 +1254,14 @@ export class MLSGroup {
     if (psks.length === 0) {
       return undefined;
     }
-    
+
     // In a real implementation, we would fetch the actual PSK values
     // For now, we'll just generate a placeholder secret based on the PSK IDs
     const encoder = new Encoder();
-    
+
     for (const psk of psks) {
       encoder.writeUint8(psk.pskType);
-      
+
       if (psk.pskType === PSKType.EXTERNAL) {
         encoder.writeVarintVector(psk.pskId || new Uint8Array(0));
       } else if (psk.pskType === PSKType.RESUMPTION) {
@@ -1272,14 +1273,14 @@ export class MLSGroup {
         view.setBigUint64(0, psk.pskEpoch || 0n);
         encoder.writeBytes(epochBytes);
       }
-      
+
       encoder.writeVarintVector(psk.pskNonce);
     }
-    
+
     // Derive a secret from the PSK info
     return hash(this.groupContext.cipherSuite, encoder.encode());
   }
-  
+
   /**
    * Get current epoch
    */
@@ -1324,7 +1325,7 @@ export class MLSGroup {
 
   /**
    * Add a resumption PSK from an existing group
-   * 
+   *
    * This injects entropy from the old group into the new group's key schedule
    * allowing for secure transitions between groups.
    */
@@ -1336,7 +1337,7 @@ export class MLSGroup {
     if (existingGroup.getCipherSuite() !== this.groupContext.cipherSuite) {
       throw new Error("Cannot resume between groups with different cipher suites");
     }
-    
+
     // Create a PSK proposal using the group ID and epoch from the existing group
     // In a real implementation, this would actually reference a stored PSK
     const proposal: Proposal = {
@@ -1351,14 +1352,14 @@ export class MLSGroup {
         },
       },
     };
-    
+
     // Store the proposal
     const ref = this.computeProposalRef(proposal);
     this.pendingProposals.set(this.proposalRefToString(ref), proposal);
-    
+
     // In a real implementation, we would store info about this PSK
     // to allow checking its validity later
-    
+
     return ref;
   }
 
@@ -1376,16 +1377,16 @@ export class MLSGroup {
       console.error("Key package protocol version mismatch");
       return false;
     }
-    
+
     // Check lifetime validity
     const now = BigInt(Math.floor(Date.now() / 1000));
-    if (keyPackage.leafNode.lifetime && 
-        (now < keyPackage.leafNode.lifetime.notBefore || 
+    if (keyPackage.leafNode.lifetime &&
+        (now < keyPackage.leafNode.lifetime.notBefore ||
          now > keyPackage.leafNode.lifetime.notAfter)) {
       console.error("Key package expired or not yet valid");
       return false;
     }
-    
+
     // Check capabilities
     const caps = keyPackage.leafNode.capabilities;
     if (!caps.versions.includes(ProtocolVersion.MLS10)) {
@@ -1396,7 +1397,7 @@ export class MLSGroup {
       console.error("Key package doesn't support group cipher suite");
       return false;
     }
-    
+
     // Check required proposals support
     const requiredProposals = [ProposalType.ADD, ProposalType.UPDATE, ProposalType.REMOVE];
     for (const proposal of requiredProposals) {
@@ -1406,24 +1407,22 @@ export class MLSGroup {
       }
     }
 
-    // Verify signature
-    const encoder = new Encoder();
-    const encoded = encodeKeyPackage(keyPackage);
-    const tbs = encoder.encode();
-    
+    // Verify signature using correct TBS encoding
+    const keyPackageTBS = encodeKeyPackageTBS(keyPackage);
+
     const signatureResult = verifyWithLabel(
       keyPackage.cipherSuite,
       keyPackage.leafNode.signatureKey,
       "KeyPackageTBS",
-      tbs.slice(0, -keyPackage.signature.length), // Remove signature
+      keyPackageTBS,
       keyPackage.signature,
     );
-    
+
     if (!signatureResult) {
       console.error("Key package signature verification failed");
       return false;
     }
-    
+
     return true;
   }
 
@@ -1660,14 +1659,14 @@ export function joinGroup(
 
 /**
  * Resumption operations for MLS protocol
- * 
+ *
  * These functions enable group resumption after network partitions
  * or for creating subgroups from existing groups
  */
 
 /**
  * Create a new group by resuming from an existing group state
- * 
+ *
  * This allows creating a new group that knows about the old group's
  * key material, enabling secure transitions between groups.
  */
@@ -1679,9 +1678,9 @@ export async function resumeGroup(
   storage: MLSStorage,
 ): Promise<MLSGroup> {
   // Create a new group with the same cipher suite
-  const myIdentity = existingGroup.getMembers()[existingGroup.getMyLeafIndex()].credential.identity || 
+  const myIdentity = existingGroup.getMembers()[existingGroup.getMyLeafIndex()].credential.identity ||
                     new Uint8Array(0);
-  
+
   // Create new group
   const newGroup = await createGroup(
     newGroupId,
@@ -1689,42 +1688,42 @@ export async function resumeGroup(
     myIdentity,
     storage,
   );
-  
+
   // Inject resumption PSK into the new group
   await newGroup.addResumptionPSK(existingGroup, usage);
-  
+
   // Add the specified members from the old group
   const oldMembers = existingGroup.getMembers();
   const proposalRefs: ProposalRef[] = [];
-  
+
   for (const leafIndex of members) {
     // Skip ourselves (we're already in the group)
     if (leafIndex === existingGroup.getMyLeafIndex()) {
       continue;
     }
-    
+
     const member = oldMembers[leafIndex];
     if (!member) {
       throw new Error(`Member at leaf ${leafIndex} not found in existing group`);
     }
-    
+
     // In a real implementation, we'd need to generate KeyPackages for members
     // Here we just create a simplified one based on the existing leaf node
     const keyPackage = await createKeyPackageFromLeafNode(
-      member, 
+      member,
       existingGroup.getCipherSuite()
     );
-    
+
     proposalRefs.push(newGroup.addMember(keyPackage));
   }
-  
+
   // Commit the proposals
   const { commit } = await newGroup.commit(proposalRefs);
-  
+
   // In a real implementation, you'd now distribute this commit and the welcome
   // message to the other members
   console.log(`Created resumed group with ID ${Array.from(newGroupId).toString()} and ${members.length} members`);
-  
+
   return newGroup;
 }
 
@@ -1738,18 +1737,36 @@ async function createKeyPackageFromLeafNode(
   cipherSuite: CipherSuite
 ): Promise<KeyPackage> {
   // Generate a fake init key for this simulated key package
-  const initKey = generateHPKEKeyPair(cipherSuite).publicKey;
+  const initKeyPair = generateHPKEKeyPair(cipherSuite);
   
+  // Generate a signature key pair for signing
+  const signatureKeyPair = generateSignatureKeyPair(cipherSuite);
+
+  // Create the key package structure without signature first
   const keyPackage: KeyPackage = {
     protocolVersion: ProtocolVersion.MLS10,
     cipherSuite: cipherSuite,
-    initKey: initKey,
-    leafNode: { ...leafNode }, // Clone the leaf node
+    initKey: initKeyPair.publicKey,
+    leafNode: { 
+      ...leafNode, 
+      // Use the new signature key for consistency
+      signatureKey: signatureKeyPair.publicKey,
+    }, 
     extensions: [],
-    signature: new Uint8Array(64), // Placeholder signature
+    signature: new Uint8Array(64), // Will be replaced below
   };
+
+  // Create proper signature for the key package
+  const keyPackageTBS = encodeKeyPackageTBS(keyPackage);
   
-  // In a real implementation, we would sign the key package
+  const signature = signWithLabel(
+    cipherSuite,
+    signatureKeyPair.privateKey,
+    "KeyPackageTBS",
+    keyPackageTBS,
+  );
+
+  keyPackage.signature = signature;
   
   return keyPackage;
 }

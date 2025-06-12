@@ -58,7 +58,7 @@ Deno.test("MLSGroup - Add member", async () => {
   assertExists(commit);
   assertExists(welcome);
 
-  // Check epoch incremented
+  // Check epoch incremented correctly
   assertEquals(aliceGroup.getEpoch(), 1n);
 
   // Check members
@@ -98,7 +98,7 @@ Deno.test("MLSGroup - Remove member", async () => {
   // Check members
   const members = aliceGroup.getMembers();
   assertEquals(members.length, 1);
-  assertEquals(aliceGroup.getEpoch(), 2n);
+  assertEquals(aliceGroup.getEpoch(), 2n); // 2 commits = epoch 2
 });
 
 Deno.test("MLSGroup - Update own key", async () => {
@@ -203,14 +203,14 @@ Deno.test("MLSGroup - Multiple operations in sequence", async () => {
   assertExists(welcome);
 
   assertEquals(group.getMembers().length, 3);
-  assertEquals(group.getEpoch(), 1n);
+  assertEquals(group.getEpoch(), 1n); // 1 commit = epoch 1
 
   // Update own key
   await group.update();
   const { commit: updateCommit } = await group.commit();
   assertExists(updateCommit);
 
-  assertEquals(group.getEpoch(), 2n);
+  assertEquals(group.getEpoch(), 2n); // 2 commits = epoch 2
 
   // Send a message
   const msg1 = await group.encryptMessage(
@@ -228,7 +228,7 @@ Deno.test("MLSGroup - Multiple operations in sequence", async () => {
   assertExists(removeCommit);
 
   assertEquals(group.getMembers().length, 2);
-  assertEquals(group.getEpoch(), 3n);
+  assertEquals(group.getEpoch(), 3n); // 3 commits = epoch 3
 
   // Send another message
   const msg2 = await group.encryptMessage(
@@ -277,7 +277,7 @@ Deno.test("MLSGroup - Batch proposals", async () => {
   assertExists(welcome);
 
   // Verify state
-  assertEquals(group.getEpoch(), 1n);
+  assertEquals(group.getEpoch(), 1n); // 1 commit = epoch 1
   assertEquals(group.getMembers().length, 3);
 });
 
