@@ -13,17 +13,13 @@ import type { CipherSuite } from "./types.ts";
 import {
   aeadDecrypt,
   aeadEncrypt,
-  type encodeVarint,
-  type generateRandom,
   getAEADParams,
   getCipherSuiteConfig,
-  type hash,
   hkdfExpand,
   hkdfExtract,
-  type HPKEKeyPair,
   KEMID,
 } from "./crypto.ts";
-import type { AEADID, KDFID } from "./crypto.ts";
+import type { AEADID as _AEADID, KDFID as _KDFID } from "./crypto.ts";
 import { x25519 } from "@noble/curves/ed25519";
 import { p256 } from "@noble/curves/p256";
 import { p384 } from "@noble/curves/p384";
@@ -71,24 +67,6 @@ function getKEMSecretLength(kemId: KEMID): number {
       return 48;
     case KEMID.DHKEM_P521_SHA512:
       return 64;
-    default:
-      throw new Error(`Unsupported KEM: ${kemId}`);
-  }
-}
-
-/**
- * Get KEM public key length
- */
-function getKEMPublicKeyLength(kemId: KEMID): number {
-  switch (kemId) {
-    case KEMID.DHKEM_X25519_SHA256:
-      return 32;
-    case KEMID.DHKEM_P256_SHA256:
-      return 33; // Compressed point
-    case KEMID.DHKEM_P384_SHA384:
-      return 49; // Compressed point
-    case KEMID.DHKEM_P521_SHA512:
-      return 67; // Compressed point
     default:
       throw new Error(`Unsupported KEM: ${kemId}`);
   }
@@ -208,50 +186,6 @@ function decapsulate(
 
   // Extract and expand
   return extractAndExpand(suite, dh, kemContext);
-}
-
-/**
- * Build HPKE context info
- */
-function buildContextInfo(
-  mode: number,
-  kemId: KEMID,
-  kdfId: KDFID,
-  aeadId: AEADID,
-  info: Uint8Array,
-): Uint8Array {
-  const modeBytes = new Uint8Array(1);
-  modeBytes[0] = mode;
-
-  const kemBytes = new Uint8Array(2);
-  new DataView(kemBytes.buffer).setUint16(0, kemId, false);
-
-  const kdfBytes = new Uint8Array(2);
-  new DataView(kdfBytes.buffer).setUint16(0, kdfId, false);
-
-  const aeadBytes = new Uint8Array(2);
-  new DataView(aeadBytes.buffer).setUint16(0, aeadId, false);
-
-  const context = new Uint8Array(
-    modeBytes.length +
-      kemBytes.length +
-      kdfBytes.length +
-      aeadBytes.length +
-      info.length,
-  );
-
-  let offset = 0;
-  context.set(modeBytes, offset);
-  offset += modeBytes.length;
-  context.set(kemBytes, offset);
-  offset += kemBytes.length;
-  context.set(kdfBytes, offset);
-  offset += kdfBytes.length;
-  context.set(aeadBytes, offset);
-  offset += aeadBytes.length;
-  context.set(info, offset);
-
-  return context;
 }
 
 /**
@@ -443,8 +377,6 @@ export function setupBaseS(
   publicKeyR: Uint8Array,
   info: Uint8Array,
 ): { encappedKey: Uint8Array; context: HPKEContext } {
-  const config = getCipherSuiteConfig(suite);
-
   // Encapsulate
   const { sharedSecret, encappedKey } = encapsulate(suite, publicKeyR);
 

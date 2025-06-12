@@ -5,8 +5,8 @@
  */
 
 import type {
-  HPKEPrivateKey,
-  HPKEPublicKey,
+  HPKEPrivateKey as _HPKEPrivateKey,
+  HPKEPublicKey as _HPKEPublicKey,
   LeafIndex,
   LeafNode,
   NodeIndex,
@@ -79,7 +79,7 @@ export class TypedNodeIndex {
     }
 
     // Store the integer value
-    (this as any).value = intValue;
+    (this as { value: number }).value = intValue;
   }
 
   isLeaf(): boolean {
@@ -671,7 +671,7 @@ export class RatchetTree {
   /**
    * Legacy tree hash computation (for backward compatibility)
    */
-  computeTreeHash(index: NodeIndex, depth = 0): Uint8Array {
+  computeTreeHash(index: NodeIndex, _depth = 0): Uint8Array {
     const typedIndex = new TypedNodeIndex(index);
     return this.computeTreeHashStructured(typedIndex);
   }
@@ -802,12 +802,11 @@ export class RatchetTree {
     this.blank(nodeIndex);
 
     // Remove from unmerged leaves
-    this.leafNodes.forEach((_, index) => {
-      const node = this.leafNodes[index];
+    this.leafNodes.forEach((_, _index) => {
       // Note: Leaf nodes don't have unmerged leaves, only parent nodes do
     });
 
-    this.parentNodes.forEach((node, index) => {
+    this.parentNodes.forEach((node, _index) => {
       if (node && "unmergedLeaves" in node) {
         const parentNode = node as ParentNode;
         parentNode.unmergedLeaves = parentNode.unmergedLeaves.filter(
@@ -929,7 +928,7 @@ export class RatchetTree {
    */
   private computeOriginalTreeHash(
     index: NodeIndex,
-    parentNode: RatchetNode,
+    _parentNode: RatchetNode,
   ): Uint8Array {
     // For now, use the regular tree hash
     // In a full implementation, this would handle exclusion of unmerged leaves

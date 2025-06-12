@@ -22,7 +22,7 @@ import {
   ProtocolVersion,
   type PublicMessage,
   type Sender,
-  type SenderType,
+  type SenderType as _SenderType,
   WireFormat,
 } from "./types.ts";
 
@@ -35,11 +35,11 @@ import {
 } from "./crypto.ts";
 
 import type {
-  contextOpen,
-  contextSeal,
-  HPKEContext,
-  setupBaseR,
-  setupBaseS,
+  contextOpen as _contextOpen,
+  contextSeal as _contextSeal,
+  HPKEContext as _HPKEContext,
+  setupBaseR as _setupBaseR,
+  setupBaseS as _setupBaseS,
 } from "./hpke.ts";
 
 import {
@@ -106,10 +106,10 @@ export class MessageProcessor {
   /**
    * Create a PrivateMessage (HPKE-encrypted) for application data
    */
-  async createPrivateMessage(
+  createPrivateMessage(
     content: FramedContent,
     additionalData?: Uint8Array,
-  ): Promise<MLSMessage> {
+  ): MLSMessage {
     // Encode the framed content
     const contentBytes = encodeFramedContent(content);
 
@@ -118,7 +118,7 @@ export class MessageProcessor {
 
     // Encrypt content using application ratchet
     const generation = this.generationCounter++;
-    const { ciphertext, nonce } = await this.encryptContent(
+    const { ciphertext, nonce } = this.encryptContent(
       contentBytes,
       senderData,
       generation,
@@ -188,9 +188,9 @@ export class MessageProcessor {
   /**
    * Process a PrivateMessage (decrypt and extract content)
    */
-  async processPrivateMessage(
+  processPrivateMessage(
     mlsMessage: MLSMessage,
-  ): Promise<MessageResult> {
+  ): MessageResult {
     if (mlsMessage.wireFormat !== WireFormat.PrivateMessage) {
       throw new Error("Expected PrivateMessage");
     }
@@ -210,7 +210,7 @@ export class MessageProcessor {
     }
 
     // Decrypt content
-    const { contentBytes, nonce, reusedNonce } = await this.decryptContent(
+    const { contentBytes, nonce, reusedNonce } = this.decryptContent(
       privateMessage.encryptedSenderData,
       privateMessage.authenticatedData,
       privateMessage.generation,
@@ -300,11 +300,11 @@ export class MessageProcessor {
     return senderBytes;
   }
 
-  private async encryptContent(
+  private encryptContent(
     content: Uint8Array,
     senderData: Uint8Array,
     generation: bigint,
-  ): Promise<{ ciphertext: Uint8Array; nonce: Uint8Array }> {
+  ): { ciphertext: Uint8Array; nonce: Uint8Array } {
     // Derive message key from encryption secret and generation
     const messageKey = this.deriveMessageKey(generation);
 
@@ -323,13 +323,11 @@ export class MessageProcessor {
     return { ciphertext, nonce };
   }
 
-  private async decryptContent(
+  private decryptContent(
     ciphertext: Uint8Array,
     aad: Uint8Array,
     generation: bigint,
-  ): Promise<
-    { contentBytes: Uint8Array; nonce: Uint8Array; reusedNonce: boolean }
-  > {
+  ): { contentBytes: Uint8Array; nonce: Uint8Array; reusedNonce: boolean } {
     // Derive message key from encryption secret and generation
     const messageKey = this.deriveMessageKey(generation);
 

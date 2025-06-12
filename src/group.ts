@@ -9,7 +9,6 @@
 import {
   type Add,
   type ApplicationData,
-  type BasicCredential,
   type CipherSuite,
   type Commit,
   ContentType,
@@ -45,8 +44,8 @@ import {
   WireFormat,
 } from "./types.ts";
 import { type LeafIndex, RatchetTree } from "./ratchet-tree.ts";
-import { KeySchedule } from "./key-schedule.ts";
-import type { MLSStorage } from "./storage.ts";
+import { type EpochSecrets, KeySchedule } from "./key-schedule.ts";
+import type { MLSStorage, StoredEpochSecrets } from "./storage.ts";
 import { encodeGroupId } from "./storage.ts";
 import {
   aeadDecrypt,
@@ -323,13 +322,13 @@ export class MLSGroup {
 
     // Check for optional path secret
     const hasPathSecret = secretsDecoder.readUint8();
-    let pathSecret: Uint8Array | undefined;
+    let _pathSecret: Uint8Array | undefined;
     if (hasPathSecret === 1) {
-      pathSecret = secretsDecoder.readVarintVector();
+      _pathSecret = secretsDecoder.readVarintVector();
     }
 
     // Read PSKs (if any)
-    const pskData = secretsDecoder.readVarintVector();
+    const _pskData = secretsDecoder.readVarintVector();
     // For now, we'll skip PSK processing in Welcome join
 
     console.log(`Successfully decrypted group secrets`);
@@ -434,10 +433,10 @@ export class MLSGroup {
         const nodeType = decoder.readUint8();
 
         if (nodeType === 1) { // Leaf node
-          const leafData = decoder.readVarintVector();
+          const _leafData = decoder.readVarintVector();
           // Skip detailed leaf parsing for now
         } else if (nodeType === 2) { // Parent node
-          const parentData = decoder.readVarintVector();
+          const _parentData = decoder.readVarintVector();
           // Skip detailed parent parsing for now
         }
         // nodeType 0 = blank node, skip
@@ -636,7 +635,7 @@ export class MLSGroup {
 
     // Process PSK proposals
     const psks = this.processPSKs(proposals);
-    const pskSecret = await this.derivePSKSecret(psks);
+    const _pskSecret = this.derivePSKSecret(psks);
 
     // Create new group context
     const newGroupContext: GroupContext = {
@@ -905,7 +904,7 @@ export class MLSGroup {
 
     // Process any PSK proposals
     const psks = this.processPSKs(processedProposals);
-    const pskSecret = await this.derivePSKSecret(psks);
+    const _pskSecret = this.derivePSKSecret(psks);
 
     // STATE VALIDATION 11: Verify tree hash
     const newTreeHash = provisionalTree.computeTreeHash(
@@ -1261,7 +1260,7 @@ export class MLSGroup {
     );
 
     // Decode framed content
-    const decoder = new Decoder(framedContentBytes);
+    const _decoder = new Decoder(framedContentBytes);
     const framedContent = decodeFramedContent(framedContentBytes);
 
     // Verify it's application data
@@ -1332,9 +1331,9 @@ export class MLSGroup {
    * Derive PSK secret from a list of PSK identities
    * In a real implementation, this would fetch the actual PSK values from storage
    */
-  private async derivePSKSecret(
+  private derivePSKSecret(
     psks: PreSharedKeyID[],
-  ): Promise<Uint8Array | undefined> {
+  ): Uint8Array | undefined {
     if (psks.length === 0) {
       return undefined;
     }
@@ -1413,10 +1412,10 @@ export class MLSGroup {
    * This injects entropy from the old group into the new group's key schedule
    * allowing for secure transitions between groups.
    */
-  async addResumptionPSK(
+  addResumptionPSK(
     existingGroup: MLSGroup,
     usage: ResumptionPSKUsage = ResumptionPSKUsage.APPLICATION,
-  ): Promise<ProposalRef> {
+  ): ProposalRef {
     // Verify cipher suites match
     if (existingGroup.getCipherSuite() !== this.groupContext.cipherSuite) {
       throw new Error(
@@ -1521,7 +1520,7 @@ export class MLSGroup {
   }
 
   private computeProposalRef(proposal: Proposal): ProposalRef {
-    const encoder = new Encoder();
+    const _encoder = new Encoder();
     const encoded = encodeProposal(proposal);
     return hash(this.groupContext.cipherSuite, encoded);
   }
@@ -1560,7 +1559,7 @@ export class MLSGroup {
 
   private computeConfirmedTranscriptHash(commit: Commit): Uint8Array {
     // Simplified - should include all confirmed proposals and commits
-    const encoder = new Encoder();
+    const _encoder = new Encoder();
     const encoded = encodeCommit(commit);
     return hash(this.groupContext.cipherSuite, encoded);
   }
@@ -1574,7 +1573,7 @@ export class MLSGroup {
       const contentBytes = encodeFramedContent(content);
       const tbsEncoder = new Encoder();
       // Encode FramedContentTBS
-      const groupContextBytes = encodeGroupContext(this.groupContext);
+      const _groupContextBytes = encodeGroupContext(this.groupContext);
       tbsEncoder.writeBytes(contentBytes);
 
       const signature = signWithLabel(
@@ -1632,7 +1631,7 @@ export class MLSGroup {
   ): boolean {
     const contentBytes = encodeFramedContent(content);
     const tbsEncoder = new Encoder();
-    const groupContextBytes = encodeGroupContext(this.groupContext);
+    const _groupContextBytes = encodeGroupContext(this.groupContext);
     tbsEncoder.writeBytes(contentBytes);
 
     return verifyWithLabel(
@@ -1644,7 +1643,9 @@ export class MLSGroup {
     );
   }
 
-  private convertToStoredEpochSecrets(epochSecrets: any): any {
+  private convertToStoredEpochSecrets(
+    epochSecrets: EpochSecrets,
+  ): StoredEpochSecrets {
     return {
       initSecret: epochSecrets.initSecret,
       commitSecret: new Uint8Array(0), // Placeholder
@@ -1816,7 +1817,7 @@ export async function resumeGroup(
   }
 
   // Commit the proposals
-  const { commit } = await newGroup.commit(proposalRefs);
+  const _commit = await newGroup.commit(proposalRefs);
 
   // In a real implementation, you'd now distribute this commit and the welcome
   // message to the other members
@@ -1834,10 +1835,10 @@ export async function resumeGroup(
  * In a real implementation, this would involve getting the actual
  * KeyPackage for the member. Here we synthesize one.
  */
-async function createKeyPackageFromLeafNode(
+function createKeyPackageFromLeafNode(
   leafNode: LeafNode,
   cipherSuite: CipherSuite,
-): Promise<KeyPackage> {
+): KeyPackage {
   // Generate a fake init key for this simulated key package
   const initKeyPair = generateHPKEKeyPair(cipherSuite);
 

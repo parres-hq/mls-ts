@@ -279,7 +279,7 @@ export class InMemoryMLSStorage extends MLSStorage {
     groups: StoredGroup[];
   }> {
     const keyPackages: StoredKeyPackage[] = [];
-    for (const [clientId, packages] of this.keyPackages) {
+    for (const [_clientId, packages] of this.keyPackages) {
       for (const pkg of packages.values()) {
         keyPackages.push(pkg); // Remove the clientId spread since it's not part of StoredKeyPackage
       }

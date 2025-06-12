@@ -394,7 +394,7 @@ export class KeySchedule {
 
     // Derive welcome secret from joiner secret
     const config = getCipherSuiteConfig(this.suite);
-    const hashLength = config.hash.outputLen;
+    const _hashLength = config.hash.outputLen;
 
     // For now, return a derived secret (should use joiner secret from commit)
     return deriveSecret(this.suite, this.epochSecrets.initSecret, "welcome");

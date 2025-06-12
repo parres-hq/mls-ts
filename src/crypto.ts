@@ -5,7 +5,7 @@
 
 import { sha256, sha384, sha512 } from "@noble/hashes/sha2";
 import { hmac } from "@noble/hashes/hmac";
-import type { hkdf } from "@noble/hashes/hkdf";
+import type { hkdf as _hkdf } from "@noble/hashes/hkdf";
 import { randomBytes } from "@noble/hashes/utils";
 import { x25519 } from "@noble/curves/ed25519";
 import { ed25519 } from "@noble/curves/ed25519";

@@ -10,8 +10,6 @@ import {
   ContentType,
   type Credential,
   CredentialType,
-  type EncryptedGroupSecrets,
-  type Epoch,
   type Extension,
   type ExtensionType,
   type FramedContent,
@@ -21,7 +19,6 @@ import {
   type GroupInfo,
   type GroupSecrets,
   type HPKECiphertext,
-  type HPKEPublicKey,
   type KeyPackage,
   type LeafNode,
   LeafNodeSource,
@@ -37,13 +34,10 @@ import {
   type ProtocolVersion,
   PSKType,
   type PublicMessage,
-  type ResumptionPSKUsage,
   type Sender,
   SenderType,
-  type SignaturePublicKey,
   type UpdatePath,
   type UpdatePathNode,
-  type Welcome,
   WireFormat,
 } from "./types.ts";
 
@@ -233,7 +227,7 @@ export function encodeCredential(cred: Credential): Uint8Array {
       if (!cred.identity) throw new Error("Basic credential requires identity");
       encoder.writeVarintVector(cred.identity);
       break;
-    case CredentialType.X509:
+    case CredentialType.X509: {
       if (!cred.certificates) {
         throw new Error("X509 credential requires certificates");
       }
@@ -243,6 +237,7 @@ export function encodeCredential(cred: Credential): Uint8Array {
       }
       encoder.writeVarintVector(certEncoder.finish());
       break;
+    }
     default:
       throw new Error(`Unknown credential type: ${cred.credentialType}`);
   }
@@ -634,7 +629,7 @@ export function decodeCredential(decoder: Decoder): Credential {
         credentialType,
         identity: decoder.readVarintVector(),
       };
-    case CredentialType.X509:
+    case CredentialType.X509: {
       const certData = decoder.readVarintVector();
       const certDecoder = new Decoder(certData);
       const certificates: Uint8Array[] = [];
@@ -645,6 +640,7 @@ export function decodeCredential(decoder: Decoder): Credential {
         credentialType,
         certificates,
       };
+    }
     default:
       throw new Error(`Unknown credential type: ${credentialType}`);
   }
@@ -936,10 +932,11 @@ function decodeProposal(decoder: Decoder): Proposal {
   };
 
   switch (proposalType) {
-    case ProposalType.ADD:
+    case ProposalType.ADD: {
       const keyPackageBytes = decoder.readBytes(decoder.remaining());
       result.add = { keyPackage: decodeKeyPackage(keyPackageBytes) };
       break;
+    }
     case ProposalType.UPDATE:
       result.update = { leafNode: decodeLeafNode(decoder) };
       break;
@@ -1020,15 +1017,6 @@ function decodeUpdatePathNode(decoder: Decoder): UpdatePathNode {
 }
 
 /**
- * Decode HPKECiphertext from decoder
- */
-function decodeHPKECiphertext(decoder: Decoder): HPKECiphertext {
-  const kemOutput = decoder.readVarintVector();
-  const ciphertext = decoder.readVarintVector();
-  return { kemOutput, ciphertext };
-}
-
-/**
  * Encode GroupInfo
  */
 export function encodeGroupInfo(groupInfo: GroupInfo): Uint8Array {
@@ -1100,12 +1088,13 @@ export function encodeMLSMessage(message: MLSMessage): Uint8Array {
   encoder.writeUint8(message.wireFormat);
 
   switch (message.wireFormat) {
-    case WireFormat.PublicMessage:
+    case WireFormat.PublicMessage: {
       const pub = message.message as PublicMessage;
       encoder.writeBytes(encodeFramedContent(pub.content));
       encoder.writeVarintVector(pub.authTag);
       break;
-    case WireFormat.PrivateMessage:
+    }
+    case WireFormat.PrivateMessage: {
       const priv = message.message as PrivateMessage;
       encoder.writeVarintVector(priv.groupId);
       encoder.writeUint64(priv.epoch);
@@ -1114,6 +1103,7 @@ export function encodeMLSMessage(message: MLSMessage): Uint8Array {
       encoder.writeVarintVector(priv.encryptedSenderData);
       encoder.writeUint64(priv.generation);
       break;
+    }
     default:
       throw new Error(`Unknown wire format: ${message.wireFormat}`);
   }
@@ -1133,14 +1123,15 @@ export function decodeMLSMessage(data: Uint8Array): MLSMessage {
   let message: PublicMessage | PrivateMessage;
 
   switch (wireFormat) {
-    case WireFormat.PublicMessage:
+    case WireFormat.PublicMessage: {
       const contentLength = decoder.remaining() - 4; // Assume last 4 bytes are auth tag length prefix
       const contentBytes = decoder.readBytes(contentLength);
       const content = decodeFramedContent(contentBytes);
       const authTag = decoder.readVarintVector();
       message = { content, authTag } as PublicMessage;
       break;
-    case WireFormat.PrivateMessage:
+    }
+    case WireFormat.PrivateMessage: {
       const groupId = decoder.readVarintVector();
       const epoch = decoder.readUint64();
       const contentType = decoder.readUint8() as ContentType;
@@ -1156,6 +1147,7 @@ export function decodeMLSMessage(data: Uint8Array): MLSMessage {
         generation,
       } as PrivateMessage;
       break;
+    }
     default:
       throw new Error(`Unknown wire format: ${wireFormat}`);
   }
