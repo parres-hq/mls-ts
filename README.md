@@ -1,20 +1,21 @@
 # MLS TypeScript/Deno Implementation
 
-A complete TypeScript implementation of the Message Layer Security (MLS) protocol
-(RFC 9420) for Deno, focusing on security, performance, and minimal external dependencies.
+A complete TypeScript implementation of the Message Layer Security (MLS)
+protocol (RFC 9420) for Deno, focusing on security, performance, and minimal
+external dependencies.
 
 ## ⚠️ Security Status
 
-This implementation is **NOT ready for production deployment**.
-A professional security audit is recommended for high-security environments.
-See [SECURITY_ANALYSIS.md](./docs/SECURITY_ANALYSIS.md) for detailed assessment.
+This implementation is **NOT ready for production deployment**. A professional
+security audit is recommended for high-security environments. See
+[SECURITY_ANALYSIS.md](./docs/SECURITY_ANALYSIS.md) for detailed assessment.
 
 ## Usage Example
 
 ### Complete Group Messaging Flow
 
 ```typescript
-import { createGroup, joinFromWelcome, createMLSClient } from "./src/mod.ts";
+import { createGroup, createMLSClient, joinFromWelcome } from "./src/mod.ts";
 import { CipherSuite } from "./src/types.ts";
 import { InMemoryMLSStorage } from "./src/storage-memory.ts";
 
@@ -80,11 +81,11 @@ const client = await createMLSClient("user@example.com");
 
 // Generate KeyPackages for different cipher suites
 const keyPackage1 = await client.generateKeyPackage(
-  CipherSuite.MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519
+  CipherSuite.MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519,
 );
 
 const keyPackage2 = await client.generateKeyPackage(
-  CipherSuite.MLS_128_DHKEMP256_AES128GCM_SHA256_P256
+  CipherSuite.MLS_128_DHKEMP256_AES128GCM_SHA256_P256,
 );
 
 // Get all valid KeyPackages
@@ -115,6 +116,7 @@ src/
 ## Dependencies
 
 **Minimal, security-focused dependencies:**
+
 - `@noble/hashes` - SHA2 hash functions and HMAC
 - `@noble/curves` - Elliptic curve operations (Ed25519, X25519, P-256/384/521)
 - `@noble/ciphers` - AEAD ciphers (AES-GCM, ChaCha20Poly1305)
@@ -123,17 +125,23 @@ All dependencies are well-audited, TypeScript-native, and actively maintained.
 
 ## Documentation
 
-- [**Implementation Status**](./docs/IMPLEMENTATION.md) - Complete status & architecture
-- [**Security Analysis**](./docs/SECURITY_ANALYSIS.md) - Detailed security assessment
+- [**Implementation Status**](./docs/IMPLEMENTATION.md) - Complete status &
+  architecture
+- [**Security Analysis**](./docs/SECURITY_ANALYSIS.md) - Detailed security
+  assessment
 - [**Quick Reference**](./docs/QUICK_REFERENCE.md) - API overview & examples
 - [**Design Decisions**](./docs/DESIGN.md) - Key architectural choices
-- [**Known Issues**](./docs/KNOWN_ISSUES.md) - Current limitations (mostly resolved)
+- [**Known Issues**](./docs/KNOWN_ISSUES.md) - Current limitations (mostly
+  resolved)
 - [**Roadmap**](./docs/ROADMAP.md) - Development priorities & timeline
 
 ## Development
 
 ### Contributing
-This project is still early but has implemented close to complete core functionality. Contributions welcome in:
+
+This project is still early but has implemented close to complete core
+functionality. Contributions welcome in:
+
 - Auditing/Verifying the implementation
 - Addition of tests using the RFC 9420 Test vectors
 - Addition of fuzz testing
@@ -143,6 +151,7 @@ This project is still early but has implemented close to complete core functiona
 - Addition of additional MLS extensions and methods
 
 ### Development Workflow
+
 ```bash
 # Format code
 deno task fmt
@@ -166,11 +175,13 @@ MIT
 
 ## Security Disclosure
 
-For security issues, please email [j@parres.org] rather than opening public issues.
+For security issues, please email [j@parres.org] rather than opening public
+issues.
 
 ## Acknowledgments
 
 This implementation follows RFC 9420 and draws architectural inspiration from:
+
 - [OpenMLS](https://github.com/openmls/openmls) - Rust implementation
 - [MLSpp](https://github.com/cisco/mlspp) - C++ implementation
 - The MLS Working Group at IETF
